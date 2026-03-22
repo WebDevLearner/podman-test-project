@@ -14,6 +14,7 @@ services:
       retries: 10
 
   rabbitmq:
+    image: localhost/podman-test-rabbitmq:latest
     build:
       context: ./rabbitmq
       dockerfile: Containerfile
@@ -28,6 +29,7 @@ services:
       retries: 10
 
   app:
+    image: localhost/podman-test-app:latest
     build:
       context: .
       dockerfile: Containerfile

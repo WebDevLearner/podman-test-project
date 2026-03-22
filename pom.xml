@@ -28,6 +28,8 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<maven.version>3.9.6</maven.version>
+		<maven.enforcer.plugin.version>3.5.0</maven.enforcer.plugin.version>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -62,6 +64,29 @@
 
 	<build>
 		<plugins>
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-enforcer-plugin</artifactId>
+				<version>${maven.enforcer.plugin.version}</version>
+				<executions>
+					<execution>
+						<id>enforce-java-and-maven</id>
+						<goals>
+							<goal>enforce</goal>
+						</goals>
+						<configuration>
+							<rules>
+								<requireJavaVersion>
+									<version>[21,22)</version>
+								</requireJavaVersion>
+								<requireMavenVersion>
+									<version>[${maven.version},4)</version>
+								</requireMavenVersion>
+							</rules>
+						</configuration>
+					</execution>
+				</executions>
+			</plugin>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
 				<artifactId>spring-boot-maven-plugin</artifactId>

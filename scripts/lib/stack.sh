@@ -4,6 +4,24 @@ readonly MYSQL_CONTAINER="podman-test-mysql"
 readonly RABBITMQ_CONTAINER="podman-test-rabbitmq"
 readonly APP_CONTAINER="podman-test-api-compose"
 readonly API_BASE_URL="http://localhost:8080/api/messages"
+readonly NETWORK_NAME="podman-test-network"
+readonly RABBITMQ_IMAGE="localhost/podman-test-rabbitmq:latest"
+readonly APP_IMAGE="localhost/podman-test-app:latest"
+
+runtime_preflight() {
+  log "Running Podman runtime preflight"
+
+  if ! podman run --rm --pull=never docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
+    cat /tmp/podman-runtime-preflight.log >&2 || true
+
+    if maybe_enable_sudo_podman && podman run --rm --pull=never docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
+      return 0
+    fi
+
+    cat /tmp/podman-runtime-preflight.log >&2 || true
+    fail "Podman cannot run a basic container on this host. Fix the Podman runtime before starting the stack."
+  fi
+}
 
 wait_for_container_state() {
   local container_name="$1"
@@ -59,28 +77,101 @@ wait_for_api() {
 show_status() {
   log "Containers"
   podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
-  log "Pods"
-  podman pod ps --format "table {{.Name}}\t{{.Status}}\t{{.Containers}}" || true
+  log "Networks"
+  podman network ls --format "table {{.Name}}\t{{.Driver}}"
+}
+
+build_images() {
+  log "Building RabbitMQ image with podman"
+  podman build -t "${RABBITMQ_IMAGE}" -f "${SCRIPT_DIR}/rabbitmq/Containerfile" "${SCRIPT_DIR}/rabbitmq"
+
+  log "Building application image with podman"
+  podman build -t "${APP_IMAGE}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"
+}
+
+remove_container_if_present() {
+  local container_name="$1"
+  if podman container exists "${container_name}"; then
+    podman rm -f "${container_name}" >/dev/null
+  fi
+}
+
+ensure_network() {
+  if ! podman network exists "${NETWORK_NAME}"; then
+    podman network create "${NETWORK_NAME}" >/dev/null
+  fi
+}
+
+run_mysql() {
+  remove_container_if_present "${MYSQL_CONTAINER}"
+  podman run -d \
+    --name "${MYSQL_CONTAINER}" \
+    --network "${NETWORK_NAME}" \
+    --network-alias mysql \
+    -e MYSQL_ROOT_PASSWORD=test \
+    -e MYSQL_DATABASE=podman_test \
+    -p 3307:3306 \
+    --health-cmd "mysqladmin ping -h 127.0.0.1 -uroot -ptest" \
+    --health-interval 10s \
+    --health-timeout 5s \
+    --health-retries 10 \
+    docker.io/library/mysql:8.0 >/dev/null
+}
+
+run_rabbitmq() {
+  remove_container_if_present "${RABBITMQ_CONTAINER}"
+  podman run -d \
+    --name "${RABBITMQ_CONTAINER}" \
+    --network "${NETWORK_NAME}" \
+    --network-alias rabbitmq \
+    -p 5672:5672 \
+    -p 15672:15672 \
+    --health-cmd "rabbitmq-diagnostics -q ping" \
+    --health-interval 10s \
+    --health-timeout 5s \
+    --health-retries 10 \
+    "${RABBITMQ_IMAGE}" >/dev/null
+}
+
+run_app() {
+  remove_container_if_present "${APP_CONTAINER}"
+  podman run -d \
+    --name "${APP_CONTAINER}" \
+    --network "${NETWORK_NAME}" \
+    -e DB_URL="jdbc:mysql://mysql:3306/podman_test?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC" \
+    -e DB_USERNAME=root \
+    -e DB_PASSWORD=test \
+    -e RABBITMQ_HOST=rabbitmq \
+    -e RABBITMQ_PORT=5672 \
+    -e RABBITMQ_USERNAME=guest \
+    -e RABBITMQ_PASSWORD=guest \
+    -e MESSAGING_ENABLED=true \
+    -e MESSAGING_QUEUE=podman.test.messages \
+    -p 8080:8080 \
+    "${APP_IMAGE}" >/dev/null
 }
 
 compose_up() {
-  local compose_file
-  compose_file="$(compose_file_arg)"
-
-  log "Using compose command: ${COMPOSE_CMD[*]}"
+  runtime_preflight
+  build_images
+  ensure_network
   log "Starting MySQL, RabbitMQ, and the Spring Boot API"
-  "${COMPOSE_CMD[@]}" -f "${compose_file}" up -d --build
+  run_mysql
+  run_rabbitmq
 
   wait_for_container_state "${MYSQL_CONTAINER}" healthy 180
   wait_for_container_state "${RABBITMQ_CONTAINER}" healthy 180
+  run_app
   wait_for_container_state "${APP_CONTAINER}" running 180
   wait_for_api 180
 }
 
 compose_down() {
-  local compose_file
-  compose_file="$(compose_file_arg)"
-
-  log "Stopping compose stack"
-  "${COMPOSE_CMD[@]}" -f "${compose_file}" down --remove-orphans
+  log "Stopping containers"
+  remove_container_if_present "${APP_CONTAINER}"
+  remove_container_if_present "${RABBITMQ_CONTAINER}"
+  remove_container_if_present "${MYSQL_CONTAINER}"
+  if podman network exists "${NETWORK_NAME}"; then
+    podman network rm "${NETWORK_NAME}" >/dev/null || true
+  fi
 }

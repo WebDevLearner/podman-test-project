@@ -22,20 +22,17 @@ require_interactive_terminal() {
 
 require_start_prerequisites() {
   [[ -f "${COMPOSE_FILE}" ]] || fail "compose file not found at ${COMPOSE_FILE}"
-  require_command curl
-  select_compose_command
 }
 
 require_stop_prerequisites() {
-  [[ -f "${COMPOSE_FILE}" ]] || fail "compose file not found at ${COMPOSE_FILE}"
-  select_compose_command
+  :
 }
 
 main() {
   local choice
 
+  load_podman_mode
   bootstrap_path
-  require_command podman
   require_interactive_terminal
   show_menu
   read -r -p "Enter choice [1-3]: " choice
