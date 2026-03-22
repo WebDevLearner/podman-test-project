@@ -17,13 +17,31 @@ chmod +x script.sh
 ./script.sh
 ```
 
-The script:
+The script shows an interactive menu:
+
+```text
+Select an option:
+1. Start stack
+2. Show status
+3. Stop stack
+```
+
+When you choose `1`, the script:
 
 - Detects `podman compose` or `podman-compose`
 - Builds the application and RabbitMQ images
 - Starts MySQL, RabbitMQ, and the API
 - Waits for MySQL and RabbitMQ health checks
-- Probes the API at `http://localhost:8080/api/v1/test`
+- Probes the API at `http://localhost:8080/api/messages`
+
+## Script Layout
+
+The script has been split for readability:
+
+- `script.sh`: entry point and interactive menu
+- `scripts/lib/common.sh`: shared helpers
+- `scripts/lib/podman.sh`: Podman and compose setup
+- `scripts/lib/stack.sh`: stack lifecycle and health checks
 
 ## Services
 
@@ -38,7 +56,7 @@ The compose stack exposes these host ports:
 
 ### API
 
-- Base URL: `http://localhost:8080/api/v1/test`
+- Base URL: `http://localhost:8080/api/messages`
 
 ### MySQL
 
@@ -71,12 +89,15 @@ Inside the compose network, the application connects to:
 PowerShell line continuation uses `` ` ``. If you prefer a single line, remove it.
 
 ```powershell
-curl http://localhost:8080/api/v1/test
-curl http://localhost:8080/api/v1/test/Ben
-curl -X POST http://localhost:8080/api/v1/test `
+curl http://localhost:8080/api/messages
+curl http://localhost:8080/api/messages/1
+curl -X POST http://localhost:8080/api/messages `
   -H "Content-Type: application/json" `
-  -d "{\"requestedName\":\"Ben\",\"message\":\"hello from curl\"}"
-curl http://localhost:8080/api/v1/test/history
+  -d "{\"author\":\"Ben\",\"content\":\"hello from curl\"}"
+curl -X PUT http://localhost:8080/api/messages/1 `
+  -H "Content-Type: application/json" `
+  -d "{\"author\":\"Ben\",\"content\":\"updated from curl\"}"
+curl -X DELETE http://localhost:8080/api/messages/1
 ```
 
 ### RabbitMQ with curl
@@ -92,10 +113,10 @@ curl -u guest:guest http://localhost:15672/api/queues/%2F/podman.test.messages
 ```powershell
 mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SELECT NOW();"
 mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SHOW TABLES;"
-mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SELECT * FROM message_log;"
+mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SELECT * FROM messages;"
 ```
 
 ## Notes
 
 - RabbitMQ is configured with `loopback_users.guest = false`, so the default `guest` account is allowed from outside the container.
-- The application persists API responses to MySQL and publishes created-message events to RabbitMQ when messaging is enabled.
+- The application persists messages to MySQL and publishes created-message events to RabbitMQ when messaging is enabled.
