@@ -1,4 +1,4 @@
-FROM rabbitmq:3-management
+FROM docker.io/library/rabbitmq:3-management
 
 USER root
 
