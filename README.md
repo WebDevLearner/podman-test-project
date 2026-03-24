@@ -1,8 +1,8 @@
 # Podman Test Project
 
-Spring Boot API backed by MySQL and RabbitMQ, intended to run with `podman compose`.
+Spring Boot API backed by MySQL and RabbitMQ, intended to run with Podman.
 
-## Start Everything On Linux
+## Start Everything From Bash On Linux
 
 Run the bootstrap script from the project root:
 
@@ -28,24 +28,78 @@ Select an option:
 
 When you choose `1`, the script:
 
-- Detects `podman compose` or `podman-compose`
 - Builds the application and RabbitMQ images
 - Starts MySQL, RabbitMQ, and the API
 - Waits for MySQL and RabbitMQ health checks
 - Probes the API at `http://localhost:8080/api/messages`
+
+## Start Everything On Windows PowerShell
+
+Run the PowerShell bootstrap script from the project root:
+
+```powershell
+.\script.ps1
+```
+
+The script shows the same interactive menu:
+
+```text
+Select an option:
+1. Start stack
+2. Show status
+3. Stop stack
+```
+
+When you choose `1`, the script:
+
+- Verifies `podman` is installed
+- Initializes the default Podman machine if needed
+- Starts the Podman machine if it is stopped
+- Builds the application and RabbitMQ images
+- Starts MySQL, RabbitMQ, and the API with Podman
+- Waits for MySQL and RabbitMQ health checks
+- Waits for the API at `http://localhost:8080/api/messages`
+
+## Start Everything From Command Prompt On Windows
+
+Run the PowerShell bootstrap script from the project root through `powershell.exe`:
+
+```cmd
+powershell.exe -ExecutionPolicy Bypass -File ".\script.ps1"
+```
+
+The script shows the same interactive menu:
+
+```text
+Select an option:
+1. Start stack
+2. Show status
+3. Stop stack
+```
+
+When you choose `1`, the script:
+
+- Verifies `podman` is installed
+- Initializes the default Podman machine if needed
+- Starts the Podman machine if it is stopped
+- Builds the application and RabbitMQ images
+- Starts MySQL, RabbitMQ, and the API with Podman
+- Waits for MySQL and RabbitMQ health checks
+- Waits for the API at `http://localhost:8080/api/messages`
 
 ## Script Layout
 
 The script has been split for readability:
 
 - `script.sh`: entry point and interactive menu
+- `script.ps1`: Windows PowerShell entry point and interactive menu
 - `scripts/lib/common.sh`: shared helpers
-- `scripts/lib/podman.sh`: Podman and compose setup
+- `scripts/lib/podman.sh`: Podman setup
 - `scripts/lib/stack.sh`: stack lifecycle and health checks
 
 ## Services
 
-The compose stack exposes these host ports:
+The stack exposes these host ports:
 
 - API: `http://localhost:8080`
 - MySQL: `localhost:3307`
@@ -66,7 +120,7 @@ The compose stack exposes these host ports:
 - Password: `test`
 - Database: `podman_test`
 
-Inside the compose network, the application connects to:
+Inside the Podman network, the application connects to:
 
 - `jdbc:mysql://mysql:3306/podman_test?createDatabaseIfNotExist=false&useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC`
 
@@ -78,29 +132,73 @@ Inside the compose network, the application connects to:
 - Password: `guest`
 - Queue: `podman.test.messages`
 
-Inside the compose network, the application connects to:
+Inside the Podman network, the application connects to:
 
 - `amqp://guest:guest@rabbitmq:5672`
 
 ## Verification Commands
 
+Use the section that matches both your shell and your Podman setup:
+
+- Linux Bash: use the plain `bash` and `podman` examples
+- Windows PowerShell or `cmd` with `script.ps1`: use the Windows Podman machine variants when shown
+- Git Bash on Windows: use the Bash variants marked for Windows Podman machine when shown
+
 ### API with curl
 
-PowerShell line continuation uses `` ` ``. If you prefer a single line, remove it.
+#### Bash On Linux
 
-```powershell
+```bash
 curl http://localhost:8080/api/messages
 curl http://localhost:8080/api/messages/1
-curl -X POST http://localhost:8080/api/messages `
-  -H "Content-Type: application/json" `
-  -d "{\"author\":\"Ben\",\"content\":\"hello from curl\"}"
-curl -X PUT http://localhost:8080/api/messages/1 `
-  -H "Content-Type: application/json" `
-  -d "{\"author\":\"Ben\",\"content\":\"updated from curl\"}"
+curl -X POST http://localhost:8080/api/messages \
+  -H "Content-Type: application/json" \
+  -d '{"author":"Ben","content":"hello from curl"}'
+curl -X PUT http://localhost:8080/api/messages/1 \
+  -H "Content-Type: application/json" \
+  -d '{"author":"Ben","content":"updated from curl"}'
 curl -X DELETE http://localhost:8080/api/messages/1
 ```
 
+#### PowerShell
+
+Use `curl.exe` instead of `curl` so PowerShell does not route the command to `Invoke-WebRequest`.
+
+```powershell
+curl.exe http://localhost:8080/api/messages
+curl.exe http://localhost:8080/api/messages/1
+curl.exe -X POST http://localhost:8080/api/messages `
+  -H "Content-Type: application/json" `
+  -d '{"author":"Ben","content":"hello from curl"}'
+curl.exe -X PUT http://localhost:8080/api/messages/1 `
+  -H "Content-Type: application/json" `
+  -d '{"author":"Ben","content":"updated from curl"}'
+curl.exe -X DELETE http://localhost:8080/api/messages/1
+```
+
+#### Command Prompt
+
+Use `curl.exe` and keep each command on one line.
+
+```cmd
+curl.exe http://localhost:8080/api/messages
+curl.exe http://localhost:8080/api/messages/1
+curl.exe -X POST http://localhost:8080/api/messages -H "Content-Type: application/json" -d "{\"author\":\"Ben\",\"content\":\"hello from curl\"}"
+curl.exe -X PUT http://localhost:8080/api/messages/1 -H "Content-Type: application/json" -d "{\"author\":\"Ben\",\"content\":\"updated from curl\"}"
+curl.exe -X DELETE http://localhost:8080/api/messages/1
+```
+
 ### RabbitMQ with curl
+
+#### Bash On Linux
+
+```bash
+curl -u guest:guest http://localhost:15672/api/overview
+curl -u guest:guest http://localhost:15672/api/queues
+curl -u guest:guest http://localhost:15672/api/queues/%2F/podman.test.messages
+```
+
+#### PowerShell
 
 ```powershell
 curl -u guest:guest http://localhost:15672/api/overview
@@ -108,15 +206,71 @@ curl -u guest:guest http://localhost:15672/api/queues
 curl -u guest:guest http://localhost:15672/api/queues/%2F/podman.test.messages
 ```
 
-### MySQL with mysql client
+#### Command Prompt
+
+```cmd
+curl.exe -u guest:guest http://localhost:15672/api/overview
+curl.exe -u guest:guest http://localhost:15672/api/queues
+curl.exe -u guest:guest http://localhost:15672/api/queues/%2F/podman.test.messages
+```
+
+### MySQL with podman exec
+
+#### Bash On Linux
+
+```bash
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
+```
+
+#### Bash On Windows With Podman Machine
+
+If you are using Git Bash or another Bash terminal on Windows with `script.ps1`, use the machine connection explicitly:
+
+```bash
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
+```
+
+#### PowerShell
 
 ```powershell
-mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SELECT NOW();"
-mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SHOW TABLES;"
-mysql -h 127.0.0.1 -P 3307 -u root -ptest -D podman_test -e "SELECT * FROM messages;"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
+```
+
+#### PowerShell With Windows Podman Machine
+
+If you are using the Windows PowerShell script with a Podman machine, use the machine connection explicitly:
+
+```powershell
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
+```
+
+#### Command Prompt
+
+```cmd
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
+```
+
+#### Command Prompt With Windows Podman Machine
+
+```cmd
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT NOW();"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SHOW TABLES;"
+podman --connection podman-machine-default-root exec -it podman-test-mysql mysql -uroot -ptest -D podman_test -e "SELECT * FROM messages;"
 ```
 
 ## Notes
 
 - RabbitMQ is configured with `loopback_users.guest = false`, so the default `guest` account is allowed from outside the container.
 - The application persists messages to MySQL and publishes created-message events to RabbitMQ when messaging is enabled.
+
+

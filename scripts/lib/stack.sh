@@ -11,10 +11,10 @@ readonly APP_IMAGE="localhost/podman-test-app:latest"
 runtime_preflight() {
   log "Running Podman runtime preflight"
 
-  if ! podman run --rm --pull=never docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
+  if ! podman run --rm docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
     cat /tmp/podman-runtime-preflight.log >&2 || true
 
-    if maybe_enable_sudo_podman && podman run --rm --pull=never docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
+    if maybe_enable_sudo_podman && podman run --rm docker.io/library/hello-world >/tmp/podman-runtime-preflight.log 2>&1; then
       return 0
     fi
 
@@ -91,13 +91,13 @@ build_images() {
 
 remove_container_if_present() {
   local container_name="$1"
-  if podman container exists "${container_name}"; then
+  if podman inspect "${container_name}" >/dev/null 2>&1; then
     podman rm -f "${container_name}" >/dev/null
   fi
 }
 
 ensure_network() {
-  if ! podman network exists "${NETWORK_NAME}"; then
+  if ! podman network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
     podman network create "${NETWORK_NAME}" >/dev/null
   fi
 }
@@ -171,7 +171,7 @@ compose_down() {
   remove_container_if_present "${APP_CONTAINER}"
   remove_container_if_present "${RABBITMQ_CONTAINER}"
   remove_container_if_present "${MYSQL_CONTAINER}"
-  if podman network exists "${NETWORK_NAME}"; then
+  if podman network inspect "${NETWORK_NAME}" >/dev/null 2>&1; then
     podman network rm "${NETWORK_NAME}" >/dev/null || true
   fi
 }
