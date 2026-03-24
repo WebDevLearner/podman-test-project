@@ -2,11 +2,9 @@ FROM docker.io/library/maven:3.9.6-eclipse-temurin-21 AS build
 WORKDIR /app
 
 COPY pom.xml .
-COPY .mvn .mvn
-COPY mvnw .
 COPY src src
 
-RUN chmod +x mvnw && ./mvnw clean package -DskipTests
+RUN mvn clean package -DskipTests
 
 FROM docker.io/library/eclipse-temurin:21-jre
 WORKDIR /app
