@@ -83,10 +83,22 @@ show_status() {
 
 build_images() {
   log "Building RabbitMQ image with podman"
-  podman build -t "${RABBITMQ_IMAGE}" -f "${SCRIPT_DIR}/rabbitmq/Containerfile" "${SCRIPT_DIR}/rabbitmq"
+  if ! podman build -t "${RABBITMQ_IMAGE}" -f "${SCRIPT_DIR}/rabbitmq/Containerfile" "${SCRIPT_DIR}/rabbitmq"; then
+    if maybe_enable_sudo_podman; then
+      podman build -t "${RABBITMQ_IMAGE}" -f "${SCRIPT_DIR}/rabbitmq/Containerfile" "${SCRIPT_DIR}/rabbitmq"
+    else
+      fail "Failed to build RabbitMQ image with rootless Podman."
+    fi
+  fi
 
   log "Building application image with podman"
-  podman build -t "${APP_IMAGE}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"
+  if ! podman build -t "${APP_IMAGE}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"; then
+    if maybe_enable_sudo_podman; then
+      podman build -t "${APP_IMAGE}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"
+    else
+      fail "Failed to build application image with rootless Podman."
+    fi
+  fi
 }
 
 remove_container_if_present() {
