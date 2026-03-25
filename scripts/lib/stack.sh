@@ -123,8 +123,17 @@ wait_for_container_state() {
   local timeout_seconds="$3"
   local elapsed=0
   local state
+  local running
 
   while (( elapsed < timeout_seconds )); do
+    if [[ "${expected_state}" == "running" ]]; then
+      running="$(podman inspect --format '{{.State.Running}}' "${container_name}" 2>/dev/null || true)"
+      if [[ "${running}" == "true" ]]; then
+        log "${container_name} is ${expected_state}"
+        return 0
+      fi
+    fi
+
     state="$(podman inspect --format '{{if .State.Health}}{{.State.Health.Status}}{{else}}{{.State.Status}}{{end}}' "${container_name}" 2>/dev/null || true)"
 
     if [[ "${state}" == "${expected_state}" ]]; then

@@ -176,6 +176,14 @@ function Wait-ForContainerState {
     $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
 
     while ((Get-Date) -lt $deadline) {
+        if ($ExpectedState -eq "running") {
+            $running = & podman --connection $PodmanConnectionName inspect --format "{{.State.Running}}" $ContainerName 2>$null
+            if ($LASTEXITCODE -eq 0 -and (($running | Out-String).Trim()) -eq "true") {
+                Write-Log "$ContainerName is $ExpectedState"
+                return
+            }
+        }
+
         $state = Get-ContainerState -ContainerName $ContainerName
 
         if ($state -eq $ExpectedState) {
