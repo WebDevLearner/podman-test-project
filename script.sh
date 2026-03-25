@@ -13,6 +13,7 @@ Select an option:
 1. Start stack
 2. Show status
 3. Stop stack
+4. Quit
 EOF
 }
 
@@ -26,24 +27,30 @@ main() {
   load_podman_mode
   bootstrap_path
   require_interactive_terminal
-  show_menu
-  read -r -p "Enter choice [1-3]: " choice
 
-  case "${choice}" in
-    1)
-      compose_up
-      show_status
-      ;;
-    2)
-      show_status
-      ;;
-    3)
-      compose_down
-      ;;
-    *)
-      fail "Unknown selection: ${choice}. Choose 1, 2, or 3."
-      ;;
-  esac
+  while true; do
+    show_menu
+    read -r -p "Enter choice [1-4]: " choice
+
+    case "${choice}" in
+      1)
+        compose_up
+        show_status
+        ;;
+      2)
+        show_status
+        ;;
+      3)
+        compose_down
+        ;;
+      4)
+        break
+        ;;
+      *)
+        log "Unknown selection: ${choice}. Choose 1, 2, 3, or 4."
+        ;;
+    esac
+  done
 }
 
 main

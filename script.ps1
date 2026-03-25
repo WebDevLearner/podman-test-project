@@ -330,19 +330,28 @@ function Show-Menu {
     Write-Host "1. Start stack"
     Write-Host "2. Show status"
     Write-Host "3. Stop stack"
+    Write-Host "4. Quit"
 }
 
 Require-Command podman
 
-Show-Menu
-$choice = Read-Host "Enter choice [1-3]"
+while ($true) {
+    Show-Menu
+    $choice = Read-Host "Enter choice [1-4]"
 
-switch ($choice) {
-    "1" { Start-Stack }
-    "2" {
-        Ensure-PodmanMachineRunning
-        Show-Status
+    if ($choice -eq "4") {
+        break
     }
-    "3" { Stop-Stack }
-    default { Fail "Unknown selection: $choice. Choose 1, 2, or 3." }
+
+    switch ($choice) {
+        "1" { Start-Stack }
+        "2" {
+            Ensure-PodmanMachineRunning
+            Show-Status
+        }
+        "3" { Stop-Stack }
+        default { Write-Log "Unknown selection: $choice. Choose 1, 2, 3, or 4." }
+    }
+
+    Write-Host ""
 }
