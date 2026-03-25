@@ -1,6 +1,5 @@
 #!/usr/bin/env bash
 
-readonly COMPOSE_FILE="${SCRIPT_DIR}/compose.yaml"
 readonly PODMAN_MODE_FILE="${SCRIPT_DIR}/.podman-mode"
 
 PODMAN_BIN=""
@@ -86,28 +85,4 @@ maybe_enable_sudo_podman() {
       return 1
       ;;
   esac
-}
-
-select_compose_command() {
-  :
-}
-
-detect_podman_socket_path() {
-  :
-}
-
-podman_socket_ready() {
-  return 0
-}
-
-podman_socket_responding() {
-  return 0
-}
-
-ensure_podman_socket() {
-  return 0
-}
-
-compose_file_arg() {
-  printf '%s\n' "${COMPOSE_FILE}"
 }

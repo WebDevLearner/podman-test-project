@@ -20,14 +20,6 @@ require_interactive_terminal() {
   [[ -t 0 ]] || fail "Interactive terminal required. Run this script in a shell session."
 }
 
-require_start_prerequisites() {
-  [[ -f "${COMPOSE_FILE}" ]] || fail "compose file not found at ${COMPOSE_FILE}"
-}
-
-require_stop_prerequisites() {
-  :
-}
-
 main() {
   local choice
 
@@ -39,7 +31,6 @@ main() {
 
   case "${choice}" in
     1)
-      require_start_prerequisites
       compose_up
       show_status
       ;;
@@ -47,7 +38,6 @@ main() {
       show_status
       ;;
     3)
-      require_stop_prerequisites
       compose_down
       ;;
     *)
