@@ -5,6 +5,11 @@ Spring Boot API backed by MySQL and RabbitMQ, intended to run with Podman.
 ## Start Everything From Bash On Linux
 
 Run the bootstrap script from the project root:
+##Fix the permissions
+cd /home/u.7905589/Documents/<your poman test project location>
+chmod +x mvnw
+chmod +x scripts/*
+chmod +x scripts/lib/*
 
 ```bash
 bash script.sh
