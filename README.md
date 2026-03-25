@@ -28,6 +28,7 @@ Select an option:
 
 When you choose `1`, the script:
 
+- Builds the Spring Boot JAR on the host with a supported JDK
 - Builds the application and RabbitMQ images
 - Starts MySQL, RabbitMQ, and the API
 - Waits for MySQL and RabbitMQ health checks
@@ -55,6 +56,8 @@ When you choose `1`, the script:
 - Verifies `podman` is installed
 - Initializes the default Podman machine if needed
 - Starts the Podman machine if it is stopped
+- Selects a supported host JDK, preferring `21` and allowing `22` or `23`
+- Builds the Spring Boot JAR on the host
 - Builds the application and RabbitMQ images
 - Starts MySQL, RabbitMQ, and the API with Podman
 - Waits for MySQL and RabbitMQ health checks
@@ -82,6 +85,8 @@ When you choose `1`, the script:
 - Verifies `podman` is installed
 - Initializes the default Podman machine if needed
 - Starts the Podman machine if it is stopped
+- Selects a supported host JDK, preferring `21` and allowing `22` or `23`
+- Builds the Spring Boot JAR on the host
 - Builds the application and RabbitMQ images
 - Starts MySQL, RabbitMQ, and the API with Podman
 - Waits for MySQL and RabbitMQ health checks
@@ -98,6 +103,12 @@ The script has been split for readability:
 - `scripts/lib/stack.sh`: stack lifecycle and health checks
 
 ## Services
+
+## Build Requirements
+
+- Spring Boot `3.4.9`
+- Host JDK `21` preferred for local Maven builds; `22` and `23` also supported
+- Container runtime image remains Java `21`
 
 The stack exposes these host ports:
 

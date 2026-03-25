@@ -7,6 +7,100 @@ readonly API_BASE_URL="http://localhost:8080/api/messages"
 readonly NETWORK_NAME="podman-test-network"
 readonly RABBITMQ_IMAGE="localhost/podman-test-rabbitmq:latest"
 readonly APP_IMAGE="localhost/podman-test-app:latest"
+readonly APP_TARGET_DIR="${SCRIPT_DIR}/target"
+JAVA_BIN=""
+
+resolve_java_binary() {
+  local java_candidates=(
+    "${JAVA_HOME:-}/bin/java"
+    "${JAVA_HOME:-}/bin/java.exe"
+    "/c/Program Files/Java/jdk-23/bin/java.exe"
+    "/c/Program Files/Java/jdk-22/bin/java.exe"
+    "/c/Program Files/Java/jdk-21/bin/java.exe"
+    "/mnt/c/Program Files/Java/jdk-23/bin/java.exe"
+    "/mnt/c/Program Files/Java/jdk-22/bin/java.exe"
+    "/mnt/c/Program Files/Java/jdk-21/bin/java.exe"
+  )
+  local candidate
+  local version
+
+  for candidate in "${java_candidates[@]}"; do
+    [[ -x "${candidate}" ]] || continue
+    version="$("${candidate}" -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F. '{print $1}')"
+    if [[ "${version}" =~ ^(21|22|23)$ ]]; then
+      JAVA_BIN="${candidate}"
+      export JAVA_HOME
+      JAVA_HOME="$(cd "$(dirname "${candidate}")/.." && pwd)"
+      export JAVA_HOME
+      return 0
+    fi
+  done
+
+  if command -v java >/dev/null 2>&1; then
+    version="$(java -version 2>&1 | awk -F '"' '/version/ {print $2}' | awk -F. '{print $1}')"
+    if [[ "${version}" =~ ^(21|22|23)$ ]]; then
+      JAVA_BIN="$(command -v java)"
+      return 0
+    fi
+  fi
+
+  return 1
+}
+
+configure_java_runtime() {
+  resolve_java_binary || fail "Spring Boot 3.4.9 requires a host JDK in the 21-23 range to build this project."
+  log "Using host Java from ${JAVA_HOME:-$(dirname "$(dirname "${JAVA_BIN}")")}"
+}
+
+resolve_maven_wrapper() {
+  local candidates=(
+    "${SCRIPT_DIR}/mvnw"
+    "${SCRIPT_DIR}/mvnw.cmd"
+  )
+  local candidate
+
+  for candidate in "${candidates[@]}"; do
+    if [[ -f "${candidate}" ]]; then
+      printf '%s\n' "${candidate}"
+      return 0
+    fi
+  done
+
+  return 1
+}
+
+build_application_artifact() {
+  local maven_wrapper
+  local jar_count
+
+  configure_java_runtime
+  maven_wrapper="$(resolve_maven_wrapper)" || fail "Maven wrapper not found in ${SCRIPT_DIR}"
+  log "Building application JAR on the host"
+
+  rm -f "${APP_TARGET_DIR}"/*.jar
+
+  case "${maven_wrapper}" in
+    *.cmd)
+      if command -v cmd.exe >/dev/null 2>&1; then
+        (
+          cd "${SCRIPT_DIR}" || exit 1
+          cmd.exe /c "\"${maven_wrapper}\" clean package -DskipTests"
+        )
+      else
+        fail "Found mvnw.cmd but cmd.exe is not available on this host."
+      fi
+      ;;
+    *)
+      (
+        cd "${SCRIPT_DIR}" || exit 1
+        "${maven_wrapper}" clean package -DskipTests
+      )
+      ;;
+  esac
+
+  jar_count="$(find "${APP_TARGET_DIR}" -maxdepth 1 -type f -name '*.jar' | wc -l | tr -d '[:space:]')"
+  [[ "${jar_count}" -ge 1 ]] || fail "Host build completed without producing target/*.jar"
+}
 
 runtime_preflight() {
   log "Running Podman runtime preflight"
@@ -90,6 +184,8 @@ build_images() {
       fail "Failed to build RabbitMQ image with rootless Podman."
     fi
   fi
+
+  build_application_artifact
 
   log "Building application image with podman"
   if ! podman build -t "${APP_IMAGE}" -f "${SCRIPT_DIR}/Containerfile" "${SCRIPT_DIR}"; then

@@ -12,6 +12,55 @@ $AppContainer = "podman-test-api-compose"
 $NetworkName = "podman-test-network"
 $RabbitMqImage = "localhost/podman-test-rabbitmq:latest"
 $AppImage = "localhost/podman-test-app:latest"
+$TargetDir = Join-Path $ScriptDir "target"
+
+function Get-SupportedJavaHome {
+    $candidates = @()
+
+    if ($env:JAVA_HOME) {
+        $candidates += $env:JAVA_HOME
+    }
+
+    $candidates += @(
+        "C:\Program Files\Java\jdk-23",
+        "C:\Program Files\Java\jdk-22",
+        "C:\Program Files\Java\jdk-21"
+    )
+
+    foreach ($candidate in $candidates) {
+        $javaExe = Join-Path $candidate "bin\java.exe"
+        if (-not (Test-Path $javaExe)) {
+            continue
+        }
+
+        $versionOutput = cmd.exe /d /c """$javaExe"" -version 2>&1"
+        if ($LASTEXITCODE -ne 0) {
+            continue
+        }
+
+        $versionText = ($versionOutput | Out-String)
+        $versionMatch = [regex]::Match($versionText, 'version "(\d+)(?:\.\d+)?')
+        if ($versionMatch.Success) {
+            $majorVersion = [int]$versionMatch.Groups[1].Value
+            if ($majorVersion -ge 21 -and $majorVersion -lt 24) {
+                return $candidate
+            }
+        }
+    }
+
+    return $null
+}
+
+function Set-SupportedJavaHome {
+    $javaHome = Get-SupportedJavaHome
+    if (-not $javaHome) {
+        Fail "Spring Boot 3.4.9 requires a host JDK in the 21-23 range to build this project."
+    }
+
+    $env:JAVA_HOME = $javaHome
+    $env:Path = "$javaHome\bin;$env:Path"
+    Write-Log "Using host Java from $javaHome"
+}
 
 function Write-Log {
     param([string]$Message)
@@ -149,6 +198,18 @@ function Wait-ForContainerState {
 function Build-Images {
     Write-Log "Building RabbitMQ image with podman"
     Invoke-Podman build -t $RabbitMqImage -f (Join-Path $ScriptDir "rabbitmq\Containerfile") (Join-Path $ScriptDir "rabbitmq")
+
+    Set-SupportedJavaHome
+    Write-Log "Building application JAR on the host"
+    Get-ChildItem -Path $TargetDir -Filter *.jar -ErrorAction SilentlyContinue | Remove-Item -Force
+    & (Join-Path $ScriptDir "mvnw.cmd") clean package -DskipTests
+    if ($LASTEXITCODE -ne 0) {
+        Fail "Host Maven build failed"
+    }
+
+    if (-not (Get-ChildItem -Path $TargetDir -Filter *.jar -ErrorAction SilentlyContinue)) {
+        Fail "Host build completed without producing target\*.jar"
+    }
 
     Write-Log "Building application image with podman"
     Invoke-Podman build -t $AppImage -f (Join-Path $ScriptDir "Containerfile") $ScriptDir
